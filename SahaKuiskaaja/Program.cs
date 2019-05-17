@@ -20,18 +20,24 @@ namespace SahaKuiskaaja
             Console.WriteLine($"Sauvat sahaukseen: {string.Join(", ", sauvat)}");
 
             var optimoimaton = SahaaJarjestyksessa(sauvat, tavara);
-            Console.WriteLine($"Optimoimaton, hukka: {optimoimaton.LaskeHukka()}");
+            //Console.WriteLine($"Optimoimaton, hukka: {optimoimaton.LaskeHukka()}");
             
             var bruteforce = LuoIsoJoukko(sauvat, tavara);
-            Console.WriteLine($"Hullun tuurilla löytynyt hukka: {bruteforce.LaskeHukka()}");
+            //Console.WriteLine($"Hullun tuurilla löytynyt hukka: {bruteforce.LaskeHukka()}");
+
+            var hukka1 = optimoimaton.LaskeHukka();
+            var hukka2 = bruteforce.LaskeHukka();
+            Console.WriteLine(
+                "| Tavara: {0,10} | Optimoimaton Hukka: {1,6} | Bruteforce hukka: {2,6} | Parruja: {3,6} | Säästö: {4,10} |",
+                $"{tavara} mm.", hukka1, hukka2, bruteforce.Count, hukka1 - hukka2);
         }
 
         private static IList<Sahaus> LuoIsoJoukko(IList<Sauva> sauvat, int tavaranPituus)
         {
-            IList<Sahaus> hullunTuuria = null;
-            int pieninHukka = int.MaxValue;
-            //foreach (var sahausSuunnitelma in testiJoukko)
-            for(int i=0; i<500; i++)
+            IList<Sahaus> hullunTuuria = SahaaJarjestyksessa(sauvat, tavaranPituus);
+            int pieninHukka = hullunTuuria.LaskeHukka();
+            // foreach (var sahausSuunnitelma in testiJoukko)
+            for(int i=0; i<5000; i++)
             {
                 var sekoitettu = new List<Sauva>(sauvat);
                 sekoitettu.Shuffle();
