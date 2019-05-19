@@ -25,11 +25,32 @@ namespace SahaKuiskaaja
             var bruteforce = LuoIsoJoukko(sauvat, tavara);
             //Console.WriteLine($"Hullun tuurilla löytynyt hukka: {bruteforce.LaskeHukka()}");
 
+            var puupakkaaja = BinaaripuuMenetelma(sauvat, tavara);
+
             var hukka1 = optimoimaton.LaskeHukka();
             var hukka2 = bruteforce.LaskeHukka();
+            var hukka3 = puupakkaaja.LaskeHukka();
+            //Console.WriteLine(
+            //    "| Tavara: {0,10} | Optimoimaton Hukka: {1,6} | Bruteforce hukka: {2,6} | Parruja: {3,6} | Säästö: {4,10} |",
+            //    $"{tavara} mm.", hukka1, hukka2, bruteforce.Count, hukka1 - hukka2);
+            Raportti(tavara, "Optimoimaton", optimoimaton, 0);
+            Raportti(tavara, "Generatiivinen", bruteforce, hukka1);
+            Raportti(tavara, "BinaariPuu", puupakkaaja, hukka1);
+        }
+
+        private static void Raportti(int tavara, string nimi, IList<Sahaus> parruja, int referenssiHukka)
+        {
+            var hukka = parruja.LaskeHukka();
+            var saasto = referenssiHukka - hukka;
             Console.WriteLine(
-                "| Tavara: {0,10} | Optimoimaton Hukka: {1,6} | Bruteforce hukka: {2,6} | Parruja: {3,6} | Säästö: {4,10} |",
-                $"{tavara} mm.", hukka1, hukka2, bruteforce.Count, hukka1 - hukka2);
+                "| Menetelma: {0,15} | Tavara: {1,10} | hukka: {2,6} | Parruja: {3,6} | Säästö: {4,10} |",
+                nimi, $"{tavara} mm.", hukka, parruja.Count, Metrit(saasto));
+        }
+
+        private static string Metrit(int millit)
+        {
+            if (0 > millit) return "";
+            return $"{((double)millit / 1000).ToString("n2")} m.";
         }
 
         private static IList<Sahaus> LuoIsoJoukko(IList<Sauva> sauvat, int tavaranPituus)
@@ -58,14 +79,44 @@ namespace SahaKuiskaaja
             return hullunTuuria;
         }
 
+        private static IList<Sahaus> BinaaripuuMenetelma(IList<Sauva> sauvat, int tavaranPituus)
+        {
+            // sorttaa isommasta laskevaksi
+            var laskevatMitat = new List<Sauva>(sauvat);
+            laskevatMitat.Sort();
+            laskevatMitat.Reverse();
 
+            // latele ensimmaiseen mihin mahtuu O(n^2)
+            var sahaukset = new List<Sahaus> { new Sahaus(tavaranPituus) };
+            foreach(var sauva in sauvat)
+            {
+                if (sauva.pituus > tavaranPituus) throw new Exception("Ei näitä voi sahata");
+                bool eiMahtunut = true;
+                foreach(var sahaus in sahaukset)
+                {
+                    if(sauva.pituus <= sahaus.Hukka())
+                    {
+                        sahaus.LisaaPatka(sauva);
+                        eiMahtunut = false;
+                    }
+                }
+                if (eiMahtunut)
+                {
+                    var uusiTavara = new Sahaus(tavaranPituus);
+                    uusiTavara.LisaaPatka(sauva);
+                    sahaukset.Add(uusiTavara);
+                }
+            }
+
+            return sahaukset;
+        }
 
         private static IList<Sahaus> SahaaJarjestyksessa(IList<Sauva> sauvat, int tavaranPituus)
         {
             var optimoimaton = new List<Sahaus>();
 
             var kopio = new List<Sauva>(sauvat);
-            var nykyinenSahaus = new Sahaus { tavara = tavaranPituus };
+            var nykyinenSahaus = new Sahaus(tavaranPituus);
             while (0 != kopio.Count)
             {
                 // kurkkaa
@@ -88,7 +139,7 @@ namespace SahaKuiskaaja
                     // TODO: vois etsia sauvan joka viela voidaan sahata tasta
                     // aloita uusi parru
                     optimoimaton.Add(nykyinenSahaus);
-                    nykyinenSahaus = new Sahaus { tavara = tavaranPituus };
+                    nykyinenSahaus = new Sahaus(tavaranPituus);
                 }
             }
 
@@ -144,19 +195,30 @@ namespace SahaKuiskaaja
         }
     }
 
-    class Sauva
+    public class Sauva : IComparable
     {
         public int pituus { get; set; }
         public override string ToString()
         {
             return $"{pituus} mm";
         }
+
+        public int CompareTo(object other)
+        {
+            return pituus.CompareTo(((Sauva)other).pituus);
+        }
     }
 
-    class Sahaus
+    public class Sahaus
     {
-        public int tavara { get; set; }
+        private int _tavara { get; set; }
         private List<Sauva> _patkat;
+
+        public Sahaus(int tavara)
+        {
+            _tavara = tavara;
+        }
+
         private List<Sauva> patkat
         {
             get
@@ -181,7 +243,7 @@ namespace SahaKuiskaaja
 
         public int Hukka()
         {
-            return tavara - Hyoty();
+            return _tavara - Hyoty();
         }
 
         private int Hyoty()
