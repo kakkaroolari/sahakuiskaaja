@@ -58,7 +58,7 @@ namespace SahaKuiskaaja
             IList<Sahaus> hullunTuuria = SahaaJarjestyksessa(sauvat, tavaranPituus);
             int pieninHukka = hullunTuuria.LaskeHukka();
             // foreach (var sahausSuunnitelma in testiJoukko)
-            for(int i=0; i<5000; i++)
+            Parallel.For(0, 5000, i =>
             {
                 var sekoitettu = new List<Sauva>(sauvat);
                 sekoitettu.Shuffle();
@@ -69,11 +69,11 @@ namespace SahaKuiskaaja
                     hullunTuuria = tamaKierros;
                     pieninHukka = tamanKierroksenHukka;
                 }
-                if(i%100==0)
+                if (i % 100 == 0)
                 {
                     Console.Write(".");
                 }
-            }
+            });
             Console.WriteLine();
             // etsi tuurilla löytynyt pienin hukka
             return hullunTuuria;
