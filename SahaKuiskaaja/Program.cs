@@ -60,6 +60,7 @@ namespace SahaKuiskaaja
         {
             IList<Sahaus> hullunTuuria = SahaaJarjestyksessa(sauvat, tavaranPituus);
             int pieninHukka = hullunTuuria.LaskeHukka();
+            int pieninParrut = hullunTuuria.Count;
             var _lock = new Object();
             Console.Write("Lasketaan kiivaasti");
             // foreach (var sahausSuunnitelma in testiJoukko)
@@ -69,12 +70,14 @@ namespace SahaKuiskaaja
                 sekoitettu.Shuffle();
                 var tamaKierros = SahaaJarjestyksessa(sekoitettu, tavaranPituus);
                 var tamanKierroksenHukka = tamaKierros.LaskeHukka();
+                var tamanKierroksenParrut = tamaKierros.Count;
                 lock (_lock)
                 {
-                    if (tamanKierroksenHukka < pieninHukka)
+                    if (tamanKierroksenParrut <= pieninParrut && tamanKierroksenHukka < pieninHukka)
                     {
                         hullunTuuria = tamaKierros;
                         pieninHukka = tamanKierroksenHukka;
+                        pieninParrut = tamanKierroksenParrut;
                     }
                 }
                 if (i % 100 == 0)
