@@ -33,24 +33,27 @@ namespace SahaKuiskaaja
             //Console.WriteLine(
             //    "| Tavara: {0,10} | Optimoimaton Hukka: {1,6} | Bruteforce hukka: {2,6} | Parruja: {3,6} | Säästö: {4,10} |",
             //    $"{tavara} mm.", hukka1, hukka2, bruteforce.Count, hukka1 - hukka2);
-            Raportti(tavara, "Optimoimaton", optimoimaton, 0);
-            Raportti(tavara, "Generatiivinen", bruteforce, hukka1);
-            Raportti(tavara, "BinaariPuu", puupakkaaja, hukka1);
+            Raportti(tavara, "Optimoimaton", optimoimaton, null);
+            Raportti(tavara, "Generatiivinen", bruteforce, optimoimaton);
+            Raportti(tavara, "BinaariPuu", puupakkaaja, optimoimaton);
         }
 
-        private static void Raportti(int tavara, string nimi, IList<Sahaus> parruja, int referenssiHukka)
+        private static void Raportti(int tavara, string nimi, IList<Sahaus> parruja, IList<Sahaus> referenssiHukka)
         {
             var hukka = parruja.LaskeHukka();
-            var saasto = referenssiHukka - hukka;
+            var parruLkm = parruja.Count;
+            var refParruLkm = referenssiHukka?.Count ?? parruLkm;
+            var kokonaiset = tavara * (parruLkm - refParruLkm);
+            var saasto = referenssiHukka?.LaskeHukka() - hukka - kokonaiset;
             Console.WriteLine(
-                "| Menetelma: {0,15} | Tavara: {1,10} | hukka: {2,6} | Parruja: {3,6} | Säästö: {4,10} |",
-                nimi, $"{tavara} mm.", hukka, parruja.Count, Metrit(saasto));
+                "| Menetelma: {0,15} | Tavara: {1,10} | hukka (yht): {2,6} | Parruja: {3,6} | Säästö: {4,14} |",
+                nimi, $"{tavara} mm.", Metrit(hukka), parruja.Count, Metrit(saasto));
         }
 
-        private static string Metrit(int millit)
+        private static string Metrit(int? millit)
         {
-            if (0 > millit) return "";
-            return $"{((double)millit / 1000).ToString("n2")} m.";
+            if (null == millit) return "";
+            return $"{((double)millit.Value / 1000).ToString("n2")} m.";
         }
 
         private static IList<Sahaus> LuoIsoJoukko(IList<Sauva> sauvat, int tavaranPituus)
@@ -58,6 +61,7 @@ namespace SahaKuiskaaja
             IList<Sahaus> hullunTuuria = SahaaJarjestyksessa(sauvat, tavaranPituus);
             int pieninHukka = hullunTuuria.LaskeHukka();
             var _lock = new Object();
+            Console.Write("Lasketaan kiivaasti");
             // foreach (var sahausSuunnitelma in testiJoukko)
             Parallel.For(0, 5000, i =>
             {
