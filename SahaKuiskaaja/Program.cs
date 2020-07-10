@@ -16,7 +16,9 @@ namespace SahaKuiskaaja
 
         public class SahaOptions
         {
-            [Option('t', "tavara", Required = true, HelpText = "Aseta sahatavaran mitta millimetreina.")]
+            [Option('t', "terahukka", Required = false, Default = 4, HelpText = "Anna sirkkelin sahaushukka millimetreina.")]
+            public int Terahukka { get; set; }
+            [Option('p', "pituus", Required = true, HelpText = "Aseta sahatavaran mitta millimetreina.")]
             public int Tavara { get; set; }
             [Option('m', "mitat", Required = false, HelpText = "Anna sahattavien kappaleiden mitat listattuna (space valiin).")]
             public IEnumerable<int> Mitat { get; set; }
@@ -27,6 +29,7 @@ namespace SahaKuiskaaja
             bool testiMoodi = false;
             IList<Sauva> sauvat = null;
             int tavara = 0;
+            int terahukka = 4;
             // katso parametrit
             Parser.Default.ParseArguments<SahaOptions>(args)
                    .WithParsed<SahaOptions>(o =>
@@ -36,24 +39,25 @@ namespace SahaKuiskaaja
                            Console.WriteLine($"Lahdetaan laskemaan TESTIMOODISSA, luoden {lukumaara} kpl kappaleita valilla {min_pituus}..{max_pituus} mm.");
                            Console.WriteLine($"Paina 'Y' jatkaaksesi.");
                            // luo testidataa
-                           sauvat = LuoTestidataa();
+                           sauvat = LuoTestidataa(o.Terahukka);
                        }
                        else
                        {
                            sauvat = new List<Sauva>(o.Mitat.Count());
                            foreach (var mitta in o.Mitat)
                            {
-                               sauvat.Add(new Sauva { pituus = mitta });
+                               sauvat.Add(new Sauva(mitta));
                            }
                        }
                        tavara = o.Tavara;
+                       terahukka = o.Terahukka;
                    });
 
             Console.WriteLine($"Lahtee {sauvat.Count} sauvaa sahaukseen: {string.Join(", ", sauvat)}");
 
-            var optimoimaton = SahaaJarjestyksessa(sauvat, tavara);
+            var optimoimaton = SahaaJarjestyksessa(sauvat, tavara, terahukka);
 
-            var bruteforce = LuoIsoJoukko(sauvat, tavara);
+            var bruteforce = LuoIsoJoukko(sauvat, tavara, terahukka);
 
             //var puupakkaaja = BinaaripuuMenetelma(sauvat, tavara);
 
@@ -83,14 +87,17 @@ namespace SahaKuiskaaja
             using (var file = new System.IO.StreamWriter(fileName))
             {
                 file.WriteLine($"Tavara: {tavara} mm.");
+                file.WriteLine($"Sahausleveys: {terahukka} mm.");
                 file.WriteLine();
                 int laskuri = 0;
                 foreach(var sahausInfo in tulos)
                 {
+                    var sahaus = sahausInfo.Sahanpuruksi();
                     var hukka = sahausInfo.Hukka();
-                    file.WriteLine($"PARRU {++laskuri} (hukka: {hukka} mm):");
+                    file.WriteLine($"PARRU {++laskuri} (sahaukset: {sahaus} mm, hukka: {hukka} mm):");
                     var jarjestyksessa = sahausInfo.patkat;
-                    jarjestyksessa.Sort(delegate (Sauva c1, Sauva c2) { return c2.pituus.CompareTo(c1.pituus); });
+                    jarjestyksessa.Sort();
+                    jarjestyksessa.Reverse();
                     file.WriteLine(string.Join(", ", jarjestyksessa));
                     file.WriteLine();
                 }
@@ -146,9 +153,9 @@ namespace SahaKuiskaaja
             return $"{((double)millit.Value / 1000).ToString("n2")} m.";
         }
 
-        private static IList<Sahaus> LuoIsoJoukko(IList<Sauva> sauvat, int tavaranPituus)
+        private static IList<Sahaus> LuoIsoJoukko(IList<Sauva> sauvat, int tavaranPituus, int terahukka)
         {
-            IList<Sahaus> hullunTuuria = SahaaJarjestyksessa(sauvat, tavaranPituus);
+            IList<Sahaus> hullunTuuria = SahaaJarjestyksessa(sauvat, tavaranPituus, terahukka);
             int pieninHukka = hullunTuuria.LaskeHukka();
             int pieninParrut = hullunTuuria.Count;
             var _lock = new Object();
@@ -158,7 +165,7 @@ namespace SahaKuiskaaja
             {
                 var sekoitettu = new List<Sauva>(sauvat);
                 sekoitettu.Shuffle();
-                var tamaKierros = SahaaJarjestyksessa(sekoitettu, tavaranPituus);
+                var tamaKierros = SahaaJarjestyksessa(sekoitettu, tavaranPituus, terahukka);
                 var tamanKierroksenHukka = tamaKierros.LaskeHukka();
                 var tamanKierroksenParrut = tamaKierros.Count;
                 lock (_lock)
@@ -180,7 +187,7 @@ namespace SahaKuiskaaja
             return hullunTuuria;
         }
 
-        private static IList<Sahaus> BinaaripuuMenetelma(IList<Sauva> sauvat, int tavaranPituus)
+        private static IList<Sahaus> BinaaripuuMenetelma(IList<Sauva> sauvat, int tavaranPituus, int terahukka)
         {
             // sorttaa isommasta laskevaksi
             var laskevatMitat = new List<Sauva>(sauvat);
@@ -188,22 +195,21 @@ namespace SahaKuiskaaja
             laskevatMitat.Reverse();
 
             // latele ensimmaiseen mihin mahtuu O(n^2)
-            var sahaukset = new List<Sahaus> { new Sahaus(tavaranPituus) };
+            var sahaukset = new List<Sahaus> { new Sahaus(tavaranPituus, terahukka) };
             foreach(var sauva in sauvat)
             {
-                if (sauva.pituus > tavaranPituus) throw new Exception("Ei naita voi sahata");
+                if (sauva.pituus() > tavaranPituus) throw new Exception("Ei naita voi sahata");
                 bool eiMahtunut = true;
                 foreach(var sahaus in sahaukset)
                 {
-                    if(sauva.pituus <= sahaus.Hukka())
+                    if(sauva.pituus() <= sahaus.Hukka())
                     {
-                        sahaus.LisaaPatka(sauva);
-                        eiMahtunut = false;
+                        eiMahtunut = !sahaus.LisaaPatka(sauva);
                     }
                 }
                 if (eiMahtunut)
                 {
-                    var uusiTavara = new Sahaus(tavaranPituus);
+                    var uusiTavara = new Sahaus(tavaranPituus, terahukka);
                     uusiTavara.LisaaPatka(sauva);
                     sahaukset.Add(uusiTavara);
                 }
@@ -212,12 +218,12 @@ namespace SahaKuiskaaja
             return sahaukset;
         }
 
-        private static IList<Sahaus> SahaaJarjestyksessa(IList<Sauva> sauvat, int tavaranPituus)
+        private static IList<Sahaus> SahaaJarjestyksessa(IList<Sauva> sauvat, int tavaranPituus, int terahukka)
         {
             var optimoimaton = new List<Sahaus>();
 
             var kopio = new List<Sauva>(sauvat);
-            var nykyinenSahaus = new Sahaus(tavaranPituus);
+            var nykyinenSahaus = new Sahaus(tavaranPituus, terahukka);
             while (0 != kopio.Count)
             {
                 // kurkkaa
@@ -225,13 +231,15 @@ namespace SahaKuiskaaja
                 for (int indeksi = 0; indeksi < kopio.Count; indeksi++)
                 {
                     var ehdokas = kopio.ElementAt(indeksi);
-                    if (ehdokas.pituus > tavaranPituus) throw new Exception("Ei naita voi sahata");
-                    if (ehdokas.pituus <= nykyinenSahaus.Hukka())
+                    if (ehdokas.pituus() > tavaranPituus) throw new Exception("Ei naita voi sahata");
+                    if (ehdokas.pituus() <= nykyinenSahaus.Hukka())
                     {
                         // sahataan sauva tasta
-                        nykyinenSahaus.LisaaPatka(ehdokas);
-                        kopio.RemoveAt(indeksi);
-                        loytyi = true;
+                        if (nykyinenSahaus.LisaaPatka(ehdokas))
+                        {
+                            kopio.RemoveAt(indeksi);
+                            loytyi = true;
+                        }
                     }
                 }
 
@@ -240,20 +248,22 @@ namespace SahaKuiskaaja
                     // TODO: vois etsia sauvan joka viela voidaan sahata tasta
                     // aloita uusi parru
                     optimoimaton.Add(nykyinenSahaus);
-                    nykyinenSahaus = new Sahaus(tavaranPituus);
+                    nykyinenSahaus = new Sahaus(tavaranPituus, terahukka);
                 }
             }
+            // viimeinen
+            optimoimaton.Add(nykyinenSahaus);
 
             return optimoimaton;
         }
 
-        private static IList<Sauva> LuoTestidataa()
+        private static IList<Sauva> LuoTestidataa(int terahukka)
         {
             var rng = new Random();
             var sauvat = new List<Sauva>(100);
             for(int i=0; i<100; i++)
             {
-                sauvat.Add(new Sauva { pituus = rng.Next(min_pituus, max_pituus) } );
+                sauvat.Add(new Sauva(rng.Next(min_pituus, max_pituus)));
             }
             return sauvat;
         }
@@ -298,26 +308,40 @@ namespace SahaKuiskaaja
 
     public class Sauva : IComparable
     {
-        public int pituus { get; set; }
+        private int _pituus;
+        public int pituus()
+        {
+            return _pituus;
+        }
+
+        public Sauva(int pituus)
+        {
+            _pituus = pituus;
+        }
+
         public override string ToString()
         {
-            return $"{pituus} mm";
+            return $"{_pituus} mm";
         }
 
         public int CompareTo(object other)
         {
-            return pituus.CompareTo(((Sauva)other).pituus);
+            return _pituus.CompareTo(((Sauva)other)._pituus);
         }
     }
 
     public class Sahaus
     {
         private int _tavara { get; set; }
+        private int _terahukka;
+        private bool _taynna;
         private List<Sauva> _patkat;
 
-        public Sahaus(int tavara)
+        public Sahaus(int tavara, int terahukka)
         {
             _tavara = tavara;
+            _terahukka = terahukka;
+            _taynna = false;
         }
 
         internal List<Sauva> patkat
@@ -334,9 +358,16 @@ namespace SahaKuiskaaja
 
         public bool LisaaPatka(Sauva patka)
         {
-            if (patka.pituus <= Hukka())
+            if (_taynna) return false;
+            if (patka.pituus() <= Hukka())
             {
                 patkat.Add(patka);
+                return true;
+            }
+            if(patka.pituus() - _terahukka <= Hukka())
+            {
+                patkat.Add(patka);
+                _taynna = true;
                 return true;
             }
             return false;
@@ -344,7 +375,22 @@ namespace SahaKuiskaaja
 
         public int Hukka()
         {
-            return _tavara - Hyoty();
+            return _tavara - (Hyoty() + Sahanpuruksi());
+        }
+
+        internal int Sahanpuruksi()
+        {
+            // viimeisesta ei mene aina sahanpurua
+            var jaljella = _tavara;
+            var puruksi = 0;
+            foreach (var patka in patkat)
+            {
+                jaljella -= patka.pituus();
+                var tamaSahaus = Math.Min(_terahukka, jaljella);
+                jaljella -= tamaSahaus;
+                puruksi += tamaSahaus;
+            }
+            return puruksi;
         }
 
         private int Hyoty()
@@ -352,7 +398,7 @@ namespace SahaKuiskaaja
             var hyotypituus = 0;
             foreach (var patka in patkat)
             {
-                hyotypituus += patka.pituus;
+                hyotypituus += patka.pituus();
             }
             return hyotypituus;
         }
