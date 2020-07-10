@@ -53,6 +53,7 @@ namespace SahaKuiskaaja
                        terahukka = o.Terahukka;
                    });
 
+            Console.WriteLine($"Mennaan sahanteran leveydella {terahukka} mm.");
             Console.WriteLine($"Lahtee {sauvat.Count} sauvaa sahaukseen: {string.Join(", ", sauvat)}");
 
             var optimoimaton = SahaaJarjestyksessa(sauvat, tavara, terahukka);
