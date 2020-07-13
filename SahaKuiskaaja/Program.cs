@@ -51,7 +51,8 @@ namespace SahaKuiskaaja
                        }
                        tavara = o.Tavara;
                        terahukka = o.Terahukka;
-                   });
+                   })
+                   .WithNotParsed<SahaOptions>(p => { Environment.Exit(1); });
 
             Console.WriteLine($"Mennaan sahanteran leveydella {terahukka} mm.");
             Console.WriteLine($"Lahtee {sauvat.Count} sauvaa sahaukseen: {string.Join(", ", sauvat)}");
@@ -62,17 +63,17 @@ namespace SahaKuiskaaja
 
             //var puupakkaaja = BinaaripuuMenetelma(sauvat, tavara);
 
-            var hukka1 = optimoimaton.LaskeHukka();
-            var hukka2 = bruteforce.LaskeHukka();
+            //var hukka1 = optimoimaton.LaskeHukka();
+            //var hukka2 = bruteforce.LaskeHukka();
 
             //var hukka3 = puupakkaaja.LaskeHukka();
-            Raportti(tavara, "Optimoimaton", optimoimaton, optimoimaton);
+            Raportti(tavara, "Optimoimaton", optimoimaton, null);
             Raportti(tavara, "Generatiivinen", bruteforce, optimoimaton);
             //Raportti(tavara, "BinaariPuu", puupakkaaja, hukka1, optimoimaton.Count);
 
             // valintamenettely
             IList<Sahaus> tulos = null;
-            if (optimoimaton.Count < bruteforce.Count || (optimoimaton.Count == bruteforce.Count && hukka1 < hukka2))
+            if (optimoimaton.Count < bruteforce.Count /*|| (optimoimaton.Count == bruteforce.Count && hukka1 < hukka2)*/)
             {
                 Console.WriteLine("Optimointi ei tuottanut tulosta :(");
                 tulos = optimoimaton;
@@ -141,8 +142,9 @@ namespace SahaKuiskaaja
             var hukka = parruja.LaskeHukka();
             var parruLkm = parruja.Count;
             var refParruLkm = referenssiHukka?.Count ?? parruLkm;
-            var kokonaiset = tavara * (parruLkm - refParruLkm);
-            var saasto = referenssiHukka?.LaskeHukka() - hukka - kokonaiset;
+            var kokonaiset = tavara * (refParruLkm - parruLkm);
+            int? ekanHukka = referenssiHukka?.LaskeHukka();
+            var saasto = ekanHukka - hukka - kokonaiset;
             Console.WriteLine(
                 "| Menetelma: {0,15} | Tavara: {1,10} | hukka (yht): {2,6} | Parruja: {3,6} | Säästö: {4,14} |",
                 nimi, $"{tavara} mm.", Metrit(hukka), parruja.Count, Metrit(saasto));
